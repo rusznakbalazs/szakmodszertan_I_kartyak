@@ -1,0 +1,1 @@
+# szakmodszertan_I_kartyak
