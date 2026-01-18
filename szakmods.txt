@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Szakmódszertan I. - Pro Digitális Tudástár</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #2ec4b6;
+            --accent: #f72585;
+            --knowledge: #fbbf24;
+            --bg: #fdfdfd;
+            --text: #1e293b;
+            --line-color: #94a3b8;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
+            background-color: var(--bg);
+            background-image: 
+                linear-gradient(var(--line-color) 0.5px, transparent 0.5px),
+                linear-gradient(90deg, var(--line-color) 0.5px, transparent 0.5px);
+            background-size: 40px 40px;
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 400px; background: white; border-right: 6px solid #e2e8f0;
+            padding: 25px 15px; overflow-y: auto; flex-shrink: 0; z-index: 100;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h2 { 
+            font-family: 'Fredoka', sans-serif; color: var(--accent);
+            text-align: center; font-size: 1.8rem; margin-bottom: 25px;
+        }
+
+        .nav-item {
+            padding: 16px 20px; margin-bottom: 10px; cursor: pointer; border-radius: 15px;
+            font-size: 1.05rem; font-weight: 700; color: #475569;
+            transition: 0.3s; background: #f1f5f9; border: 3px solid transparent;
+            line-height: 1.3;
+        }
+
+        .nav-item:hover { background: #fff1f2; color: var(--accent); transform: translateX(5px); }
+        .nav-item.active { background: var(--accent); color: white; border-color: #be185d; transform: scale(1.02); }
+
+        /* --- TOP LEFT HUD --- */
+        .hud-container {
+            position: absolute; top: 20px; left: 420px;
+            display: flex; align-items: center; gap: 15px;
+            background: white; padding: 10px 25px; border-radius: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); z-index: 200;
+            border: 3px solid var(--knowledge);
+        }
+
+        .bulb-box {
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .bulb-icon {
+            font-size: 2.2rem; filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.6));
+            animation: pulse-light 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-light { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+        .xp-text-group { line-height: 1.1; }
+        .xp-val { font-family: 'Fredoka', sans-serif; font-size: 1.5rem; color: var(--primary); margin: 0; }
+        .rank-name { font-size: 0.8rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+
+        /* --- CANVAS & MAP --- */
+        .canvas {
+            flex-grow: 1; padding: 120px 40px 60px; overflow: auto;
+            position: relative; display: flex; flex-direction: column; align-items: center;
+        }
+
+        .map-root { display: flex; flex-direction: column; align-items: center; gap: 120px; width: 100%; }
+        
+        .sub-grid { 
+            display: flex; flex-wrap: wrap; gap: 40px; 
+            justify-content: center; width: 100%; max-width: 1500px;
+            position: relative;
+        }
+
+        /* --- CARDS --- */
+        .card { perspective: 1200px; width: 320px; height: 190px; position: relative; z-index: 10; }
+        .card-inner {
+            position: relative; width: 100%; height: 100%;
+            transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d; cursor: pointer;
+        }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+
+        .face {
+            position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+            border-radius: 20px; padding: 25px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            box-shadow: 0 10px 0 rgba(0,0,0,0.03); border: 4px solid #fff;
+        }
+
+        .front { background: white; font-weight: 800; color: var(--text); font-size: 1.2rem; }
+        .back { transform: rotateY(180deg); background: #fdf2f8; overflow-y: auto; text-align: left; }
+
+        .main-node .face { border-color: var(--primary); background: #eef2ff; }
+        .sub-node .face { border-color: var(--secondary); background: #f0fdf4; }
+
+        .tag { font-size: 0.75rem; font-weight: 900; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; }
+        .card-desc { font-size: 1.1rem; line-height: 1.4; color: #334155; }
+
+        /* --- SVG DRAWING --- */
+        #svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .technical-line { fill: none; stroke: #94a3b8; stroke-width: 2.5; stroke-dasharray: 6; stroke-linecap: round; }
+        .flow-blob { fill: var(--primary); animation: slideFlow 4s linear infinite; }
+
+        .particle {
+            position: fixed; width: 15px; height: 15px; background: var(--knowledge);
+            border-radius: 50%; pointer-events: none; z-index: 300;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🏆 SZAKÉRTŐI TÉR</h2>
+    <div id="nav-list"></div>
+</div>
+
+<div class="hud-container">
+    <div class="bulb-box" id="bulb-box">
+        <span class="bulb-icon">💡</span>
+    </div>
+    <div class="xp-text-group">
+        <p class="xp-val"><span id="xp-display">0</span> XP</p>
+        <div id="rank-display" class="rank-name">Újonc</div>
+    </div>
+</div>
+
+<div class="canvas">
+    <svg id="svg-layer"></svg>
+    <div class="map-root" id="map-root"></div>
+</div>
+
+<script>
+let xpCount = 0;
+let seenDefinitions = new Set();
+const ranksList = ["Újonc", "Kezdő", "Haladó", "Mester", "Szakértő", "Mérnök-Géniusz"];
+
+const dataset = [
+    {
+        id: 1, title: "1. Szakmódszertan & Rajz helye",
+        main: { h: "Tétel 1 Összefoglaló", b: "A tantárgy-pedagógia elméleti keretei és a műszaki rajz szakképzési pozíciójának rögzítése." },
+        subs: [
+            { h: "Szakmódszertan", b: "Sajátos tantárgy-pedagógia: híd a szakmai tudás és az általános pedagógiai elvek között." },
+            { h: "Didaktika", b: "Az oktatás általános elmélete; ennek elveit (pl. fokozatosság) alkalmazzuk a rajzfeladatokban." },
+            { h: "Konstruktív pedagógia", b: "A tanuló aktívan építi fel tudását meglévő ismereteire alapozva; a tanár mentor és környezetbiztosító." },
+            { h: "Ágazati alapoktatás", b: "A szakképzés első szakasza (9-10. évf.), célja az egységes szakmai kommunikációs nyelv elsajátítása." },
+            { h: "Statikus feladatok", b: "Rögzített tartalmi elemek: szabványok, jelek, vonalfajták és méretezési szabályok alkalmazása." },
+            { h: "Dinamikus feladatok", b: "Képességfejlesztés: térszemlélet, problémamegoldás, kreativitás és szakmai igényesség formálása." },
+            { h: "Koncentráció", b: "Tantárgyköziség: a rajz tudatos összekapcsolása a geometriával és a szakmai gyakorlattal." }
+        ]
+    },
+    {
+        id: 2, title: "2. Tantárgyi sajátosságok",
+        main: { h: "Tétel 2 Összefoglaló", b: "A műszaki rajz tanításának speciális lépései és a tipikus módszertani buktatók." },
+        subs: [
+            { h: "Célok operacionálása", b: "A tanulási célok megfogalmazása konkrét, mérhető tevékenységek formájában; az objektív értékelés alapja." },
+            { h: "Extrinsic motiváció", b: "Külső vezérlés: jutalmak (pl. osztályzat) vagy elvárások által hajtott tanulás." },
+            { h: "Intrinsic motiváció", b: "Belső hajtóerő: a tevékenység öröme, a megértés vágya és a kompetenciaélmény." },
+            { h: "Elméleti rögzítés", b: "A tudás megszilárdításának 1. fázisa: a szabályok és törvényszerűségek megértése." },
+            { h: "Reproduktív gyakorlás", b: "A tudás megszilárdításának 2. fázisa: mintafeladatok megoldása és begyakorlása." },
+            { h: "Konstruktív gyakorlás", b: "A tudás megszilárdításának 3. fázisa: ismeretek alkalmazása új, ismeretlen feladatokban." },
+            { h: "Vizuális transzformáció", b: "Kognitív művelet: 3D tárgy 2D kódolása és a rajz alapján történő 3D mentális újraépítés." },
+            { h: "Adaptivitás hiánya", b: "Gyakori hiba: a tanulók eltérő tempójának és előképzettségének figyelmen kívül hagyása." },
+            { h: "Túlzott szemléltetés", b: "Gyakori hiba: a kész megoldások (animációk) túltolása, ami sorvasztja a belső képalkotást." },
+            { h: "Szerkesztés-centrikusság", b: "Gyakori hiba: a technikai vonalhúzás fontosabbá válik, mint a tárgy tényleges műszaki értelmezése." },
+            { h: "Ellenőrzés típusai", b: "Diagnosztikus (helyzetkép), Formatív (fejlesztő visszajelzés), Szummatív (lezáró minősítés)." }
+        ]
+    },
+    {
+        id: 3, title: "3. Az észlelés folyamata",
+        main: { h: "Tétel 3 Összefoglaló", b: "Hogyan dolgozza fel a szem és az agy a vizuális információt? Biológiai és lélektani szintek." },
+        subs: [
+            { h: "Percepció", b: "Aktív folyamat: az érzékszervekre ható ingerek felvétele és agyi feldolgozása." },
+            { h: "Percepciós szintek", b: "A feldolgozás útja: Detekció (észrevétel) -> Diszkrimináció (különbségtétel) -> Identifikáció (felismerés)." },
+            { h: "Szakkád és fixáció", b: "A szem gyors ugrásokkal tapogat (szakkád) és a megállások (fixáció) alatt fogadja be az infót." },
+            { h: "Gestalt-elvek", b: "Alaklátás: az agy törekvése, hogy az ingereket értelmes, szervezett egészként észlelje." },
+            { h: "Zártság elve", b: "Gestalt törvény: a hiányos kontúrokat (pl. szaggatott vonal) az agy zárt alakzatként egészíti ki." },
+            { h: "Geon-elmélet", b: "Biederman szerint a tárgyakat elemi geometriai idomok (geonok) kombinációjaként azonosítjuk." },
+            { h: "Ventrális („Mi?” út)", b: "A tárgyfelismerésért, formai és színazonosításért felelős párhuzamos agyi pálya." },
+            { h: "Dorzális („Hol?” út)", b: "A téri helyzet, a mozgás és a mélység észleléséért felelős párhuzamos agyi pálya." },
+            { h: "Látási konstanciák", b: "Képesség: a tárgy tulajdonságait (méret, alak) állandónak észleljük változó körülmények között is." }
+        ]
+    },
+    {
+        id: 4, title: "4. Reprezentáció és figyelem",
+        main: { h: "Tétel 4 Összefoglaló", b: "A látott információk belső tárolása és a feldolgozás kognitív irányai." },
+        subs: [
+            { h: "Bottom-up észlelés", b: "Adatvezérelt feldolgozás: a fizikai jellemzőkből építkezik felfelé (kezdőkre jellemző)." },
+            { h: "Top-down észlelés", b: "Tudásalapú feldolgozás: a tapasztalat és elvárás irányítja a látást (szakértőkre jellemző)." },
+            { h: "Mentális reprezentáció", b: "A külvilág tárgyainak az agyban tárolt belső modellje és leképeződése." },
+            { h: "Kettős kódolás (Paivio)", b: "Az agy párhuzamosan használ verbális és képi kódokat a hatékonyabb felidézésért." },
+            { h: "Mentális forgatás", b: "Képesség a belső kép térbeli elforgatására; a művelet ideje arányos az elforgatás szögével." },
+            { h: "Mentális pásztázás", b: "A belső képen való végigtekintés és tájékozódás képessége az elmében." },
+            { h: "Szelektív figyelem", b: "Az észlelés irányultsága: a lényeg kiemelése és a zavaró ingerek aktív szűrése." },
+            { h: "Tartós figyelem", b: "Vigilancia: az észlelési készenlét fenntartása hosszú távon (pl. bonyolult rajz ellenőrzése)." }
+        ]
+    },
+    {
+        id: 5, title: "5. Vizuális kommunikáció",
+        main: { h: "Tétel 5 Összefoglaló", b: "A műszaki rajz mint vizuális nyelv és az ábrázoló geometria matematikai alapjai." },
+        subs: [
+            { h: "Vizuális kommunikáció", b: "Információcsere képi jelekkel; alapfeltétele a közös kód (szabványok) ismerete." },
+            { h: "Primer közlés", b: "Közlésforma: a valóság élethű utánzása szelekció nélkül (pl. fotó)." },
+            { h: "Direkt közlés", b: "Közlésforma: célratörő, egyértelmű és egyszerűsített informálás (műszaki ábrázolás)." },
+            { h: "Absztrakció", b: "Lényegkiemelés eszközei: Redukció (egyszerűsítés) és Szelekció (fontos infók megtartása)." },
+            { h: "Ábrázoló geometria", b: "A térbeli alakzatok síkbeli ábrázolásának tudományos alapja, a rajz 'nyelvtana'." },
+            { h: "Centrális vetítés", b: "Perspektíva: egy pontból vetít, szemléletes, de gyártásra nem mérettartó." },
+            { h: "Párhuzamos Ortogonális", b: "Merőleges sugarak: a műszaki rajz alapja, mert minden képsíkon mérettartó." },
+            { h: "Monge-féle rendszer", b: "Kétképsíkos ábrázolás: merőleges vetítés K1, K2 síkokra, majd kiterítés." },
+            { h: "Axonometria", b: "Térhatású ábrázolás egyetlen képsíkon (pl. Izometria, Dimetria, Kavalier)." },
+            { h: "Testprimitívek", b: "Alaptestek (hasáb, henger), amikből építéssel vagy lebontással jönnek létre az alakzatok." }
+        ]
+    },
+    {
+        id: 6, title: "6. Téri-vizuális képességek",
+        main: { h: "Tétel 6 Összefoglaló", b: "Összetett képességrendszer a térbeli viszonyok észlelésére és manipulálására." },
+        subs: [
+            { h: "Tapasztalati Percepció", b: "A megismerés alsó szintje: a látvány befogadása (ábraolvasás, másolás)." },
+            { h: "Gondolati Appercepció", b: "A megismerés felső szintje: a látvány értelmező feldolgozása (alkotás)." },
+            { h: "Orientáció", b: "Téri tájékozódás: saját testünk és a tárgyak helyzetének meghatározása a térben." },
+            { h: "Térszemlélet", b: "Elemei: Vizualizáció (belső kép létrehozása) és Manipuláció (gondolati átalakítás)." },
+            { h: "Anticipáló képzet", b: "Jövőbeni állapot (pl. egy szerelési lépés eredményének) mentális előrevetítése." },
+            { h: "Alak- és formaanalízis", b: "Térelemek (csúcs, él, lap) azonosítása és kölcsönös helyzetük (párhuzam, takarás) vizsgálata." }
+        ]
+    },
+    {
+        id: 7, title: "7. Összefüggések feltárása",
+        main: { h: "Tétel 7 Összefoglaló", b: "Analízis utáni szintézis: a tárgy egészének és belső kapcsolatainak megértése." },
+        subs: [
+            { h: "Aktív megfigyelés", b: "Irányított folyamat: vizsgálat szempontok (alak, arány, funkció, kapcsolódás) szerint." },
+            { h: "Nézetek kapcsolata", b: "Ugyanazon részlet (pl. furat) azonosítása különböző vetületeken az azonosság felismeréséhez." },
+            { h: "Méretösszefüggések", b: "A méretláncok és a geometriai kényszerek (pl. illesztések) felismerése a rajzon." },
+            { h: "Funkcionális kapcsolat", b: "Annak megértése, hogyan kapcsolódnak az alkatrészek egy összeállításban (pl. menetek)." },
+            { h: "Vetülettriádok", b: "A térbeli kép és a síkbeli vetületek közötti állandó gondolati ugrálás gyakorlása." },
+            { h: "Tudásdeficit", b: "Olyan problémafelvetés, amely rákényszeríti a tanulót az ismeretek új szintézisére." },
+            { h: "Modellkészítés", b: "A megértés legmélyebb szintje: síkbeli információ 3D tárggyá alakítása (pl. 3D nyomtatás)." }
+        ]
+    },
+    {
+        id: 8, title: "8. Alakbefolyásolók és képzelet",
+        main: { h: "Tétel 8 Összefoglaló", b: "Aktív látás és észleleti fogalomalkotás a műszaki ábrázolásban." },
+        subs: [
+            { h: "Aktív látás", b: "A szemmozgások és az agy révén megvalósuló kereső, értelmező látási folyamat." },
+            { h: "Észleleti fogalomalkotás", b: "Egyedi látványelemekből általános, absztrakt kategóriák (pl. 'csavar') létrehozása." },
+            { h: "Alakbefolyásoló tényezők", b: "A téri helyzet, a környezet, a korábbi tapasztalatok és a tárgy szerkezeti váza." },
+            { h: "Műszaki alapelvek", b: "Egyértelműség, egyszerűségre törekvés (szimmetria) és rendszerszerűség (szabványok)." },
+            { h: "Formaemlékezet", b: "Vizuális információk (alakok, jelek) tárolásának és pontos előhívásának képessége." },
+            { h: "Reproduktív képzelet", b: "Korábban látott dolgok emlékezetből történő felidézése és újraépítése." },
+            { h: "Produktív képzelet", b: "Már meglévő elemekből teljesen új, korábban nem létező dolgok mentális alkotása." },
+            { h: "Gondolati összeszerelés", b: "A szerkezet mentális szétszedése és újraösszerakása a működés megértéséhez." }
+        ]
+    },
+    {
+        id: 9, title: "9. Vizuális gondolkodás",
+        main: { h: "Tétel 9 Összefoglaló", b: "Problémamegoldás nem szavakkal, hanem vizuális képzetekkel és téri viszonyokkal." },
+        subs: [
+            { h: "Analízis", b: "Művelet: részekre bontás és részletek vizsgálata (pl. idomelemzés)." },
+            { h: "Szintézis", b: "Művelet: részek egyesítése és az összefüggések megértése (pl. vetületekből 3D kép)." },
+            { h: "Alaklétrehozó", b: "Sajátosság: a fő funkcióból eredő alapgeometria (pl. fogaskerék fogazata)." },
+            { h: "Alakmódosító", b: "Sajátosság: gyártást vagy szerelést segítő részletek (pl. élletörés, lekerekítés)." },
+            { h: "Általánosítás (Indukció)", b: "Művelet: egyedi esetekből általános szakmai szabály megfogalmazása." },
+            { h: "Konkretizálás (Dedukció)", b: "Művelet: általános szabály alkalmazása egy konkrét, egyedi mérnöki esetre." },
+            { h: "Paprika-analógia", b: "Metszeti ábrázolás magyarázata: ismeretlen (metszet) megértése ismert (paprika) útján." }
+        ]
+    },
+    {
+        id: 10, title: "10. Szóbeli rajztanulmányozás",
+        main: { h: "Tétel 10 Összefoglaló", b: "A rajzi információk (geometria, jelek, méretek) szisztematikus dekódolása." },
+        subs: [
+            { h: "Irányított elemzés", b: "Oktatási módszer: tanári kérdésekkel vezetett rajzvizsgálat kezdőknek." },
+            { h: "Önálló elemzés", b: "Oktatási módszer: a tanuló egyedül dekódolja a rajzot egy feladat megoldásához." },
+            { h: "Elemzési szintek", b: "Lehet Tematikus (egy szempont) vagy Teljes körű (alak, méret, anyag, technológia)." },
+            { h: "Rajztípusok", b: "Funkció szerint: Alkatrészrajz (gyártáshoz) vagy Összeállítási rajz (működéshez)." },
+            { h: "Fogalmi hierarchia", b: "Rendszer: Kategória (metszet) -> Gyűjtőfogalom (egyszerű m.) -> Elemi fogalom (félmetszet)." },
+            { h: "Osztenzív definiálás", b: "Meghatározás: rámutatással és konkrét szakmai példák felmutatásával." },
+            { h: "Genetikus definiálás", b: "Meghatározás: a dolog létrejöttének, keletkezésének leírásával." },
+            { h: "Intenzionális definiálás", b: "Meghatározás: a közelebbi nem és a fajlagos különbség logikai megadásával." }
+        ]
+    },
+    {
+        id: 11, title: "11. Rajzproblémák & Rekonstrukció",
+        main: { h: "Tétel 11 Összefoglaló", b: "Olyan helyzetek kezelése, ahol a célhoz vezető út nem ismert és a rutin nem elegendő." },
+        subs: [
+            { h: "Tudásdeficit", b: "Feszültség a meglévő és szükséges tudás között, ami motiválja a műszaki gondolkodást." },
+            { h: "Mezőfüggetlenség", b: "Kognitív stílus: képesség a részletek környezettől független, analitikus észlelésére." },
+            { h: "Rajzi rekonstrukció", b: "A térbeli (3D) tárgy alakjának mentális helyreállítása síkbeli (2D) vetületei alapján." },
+            { h: "Lebontó algoritmus", b: "Befoglaló test -> Fő részletek -> Rendezők -> Csonkolás -> Kihúzás folyamata." },
+            { h: "6 gondolkodó kalap", b: "De Bono módszere a probléma több nézőpontú (tény, érzelem, kockázat) vizsgálatára." },
+            { h: "Korrektúra (Javítás)", b: "Célja rávezető (szókratészi) kérdésekkel segíteni a tanulót a saját megoldás megtalálására." }
+        ]
+    },
+    {
+        id: 12, title: "12. Írásbeli & Jelölő módszerek",
+        main: { h: "Tétel 12 Összefoglaló", b: "Gyakorlati technikák a munkadarabok elemzéséhez és a szabályok tudatosításához." },
+        subs: [
+            { h: "Vizuális kódolás", b: "Színkódok: sík=sárga, henger=zöld, kúp=kék felületek jelölése a rajzolvasáshoz." },
+            { h: "Sraffozási szabályok", b: "Metszetjelölés: azonos alkatrész minden nézetben azonos módon sraffozandó." },
+            { h: "Magyarázat", b: "Oktatási módszer: az ok-okozati összefüggések ('miért?') feltárása a megértésért." },
+            { h: "Direkt szemléltetés", b: "Oktatási módszer: a tananyag érzékletes bemutatása fizikai modellek segítségével." },
+            { h: "Digitális technológiák", b: "IKT: CAD szoftverek, 3D animációk használata a belső képalkotás támogatására." }
+        ]
+    },
+    {
+        id: 13, title: "13. Tervezési képesség",
+        main: { h: "Tétel 13 Összefoglaló", b: "Új műszaki alkotás létrehozására irányuló komplex, integrált alkotó tevékenység." },
+        subs: [
+            { h: "Konvergens gondolkodás", b: "Logikai folyamat: egyetlen helyes megoldás felé (pl. szabvány kiválasztása)." },
+            { h: "Divergens gondolkodás", b: "Kreatív folyamat: többirányú, alternatívákat és új utakat kereső gondolkodásmód." },
+            { h: "Guilford-kocka", b: "Modell: az intellektus 180 komponensét (Tartalom, Művelet, Produktum) ábrázolja." },
+            { h: "Kreativitás jellemzői", b: "Fluencia (gazdagság), Flexibilitás (rugalmasság), Originalitás (eredetiség), Elaboráció (kidolgozottság)." },
+            { h: "Kreatív fázisok", b: "Út: Előkészület -> Lappangás -> Megvilágosodás (Aha!) -> Kidolgozás." },
+            { h: "Méretezési alapelv", b: "Tervezési korlát: az ébredő feszültség nem haladhatja meg az anyag megengedett feszültségét." },
+            { h: "Nomogramok", b: "Segédletek: grafikus diagramok bonyolult számítások nélküli gyors választáshoz." }
+        ]
+    },
+    {
+        id: 14, title: "14. Korrektúra",
+        main: { h: "Tétel 14 Összefoglaló", b: "A hibák visszacsatolása és a fejlődés támogatása az alkotófolyamat során." },
+        subs: [
+            { h: "Szókratészi módszer", b: "Korrektúra rávezető kérdésekkel, a tanuló saját felismerésére és logikájára építve." },
+            { h: "Hibaforrások", b: "A rajzi hibák elemzése: lehet szemléleti, technikai vagy szabványismereti hiányosság." },
+            { h: "Formatív értékelés", b: "A tanulást segítő, folyamat közbeni visszajelzés a reproduktív fázisokban." }
+        ]
+    },
+    {
+        id: 15, title: "15. Modell utáni rajzolás",
+        main: { h: "Tétel 15 Összefoglaló", b: "Megfigyelőképesség és szabadkézi vázolási készség fejlesztése valós tárgyak alapján." },
+        subs: [
+            { h: "Aránymegállapító mérés", b: "Ceruzás mérés: szabadkézi technika kinyújtott karral az arányok (sz/m) becsléséhez." },
+            { h: "Formatömeg", b: "A tárgy legjellemzőbb, nagy léptékű befoglaló formája; ezzel kell kezdeni a rajzot." },
+            { h: "Befoglaló test", b: "Segédtest: egyszerű test (pl. kocka) felrajzolása vázként a bonyolult formákhoz." },
+            { h: "Didaktikai sorrend", b: "Folyamat: Nagy egésztől (formatömeg) haladunk a finom részletek felé." }
+        ]
+    },
+    {
+        id: 16, title: "16. Vetületi szerkesztések",
+        main: { h: "Leképezési algoritmus", b: "A térbeli tárgy szabályos síkbeli leképezésének (Monge-rendszer) tanítási folyamata." },
+        subs: [
+            { h: "Indirekt (Induktív) mód", b: "Tapasztalatra épít: 'üvegkocka' modell alapján vezeti le a szabályokat a megfigyelésből." },
+            { h: "Direkt (Deduktív) mód", b: "Szabályalapú: általános definíciókból indul ki és ezeket alkalmazza példákra." },
+            { h: "Főnézet választás", b: "Első lépés: a tárgyat legjellemzőbben mutató vagy gyártási helyzetű nézet kijelölése." },
+            { h: "Minimális nézetszám", b: "Csak annyi vetületet alkalmazunk, amennyi a tárgy egyértelmű meghatározásához kell." },
+            { h: "Rendezővonalak", b: "A nézetek közötti szigorú geometriai kapcsolatot (szélesség, magasság) biztosító vékony vonalak." },
+            { h: "45°-os segédvonal", b: "Vetítőfél: a mélységméretek átvitele oldal- és felülnézet között körző használata nélkül." },
+            { h: "Hiánypótlás", b: "Gyakorlat 1. szint: adott nézeteken hiányzó vonalak (élek, tengelyek) kiegészítése." },
+            { h: "Vetületválasztás", b: "Gyakorlat 2. szint: a helyes nézet kiválasztása több felkínált lehetőség közül." },
+            { h: "Szerkesztés 2 nézetből", b: "Gyakorlat 3. szint: két adott vetület alapján a hiányzó harmadik megszerkesztése." },
+            { h: "Szerkesztés axonometriáról", b: "Gyakorlat 4. szint: térhatású ábrázolás alapján a síkbeli vetületek elkészítése." },
+            { h: "Szerkesztés modell után", b: "Gyakorlat 5. szint: valós tárgy alapján a vetületek önálló megtervezése (legkomplexebb)." }
+        ]
+    }
+];
+
+function init() {
+    const list = document.getElementById('nav-list');
+    dataset.sort((a,b) => a.id - b.id).forEach((topic) => {
+        const item = document.createElement('div');
+        item.className = 'nav-item' + (topic.id === 1 ? ' active' : '');
+        item.innerText = topic.title;
+        item.onclick = () => render(topic.id, item);
+        list.appendChild(item);
+    });
+    render(1, document.querySelector('.nav-item'));
+}
+
+function render(id, el) {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+
+    const topic = dataset.find(d => d.id === id);
+    const root = document.getElementById('map-root');
+    root.innerHTML = `
+        <div class="card main-node" id="main-node">
+            <div class="card-inner" onclick="handleFlip(this, 'main-${id}', event)">
+                <div class="face front"><span class="tag">Pro-Összegzés</span>${topic.main.h}</div>
+                <div class="face back"><span class="tag">Bevezetés</span><div class="card-desc">${topic.main.b}</div></div>
+            </div>
+        </div>
+        <div class="sub-grid" id="sub-nodes"></div>
+    `;
+
+    const subGrid = document.getElementById('sub-nodes');
+    topic.subs.forEach((sub, i) => {
+        const div = document.createElement('div');
+        div.className = 'card sub-node';
+        div.innerHTML = `
+            <div class="card-inner" onclick="handleFlip(this, 'sub-${id}-${i}', event)">
+                <div class="face front"><span class="tag">Mélyfúrás</span>${sub.h}</div>
+                <div class="face back"><span class="tag">Definíció</span><div class="card-desc">${sub.b}</div></div>
+            </div>
+        `;
+        subGrid.appendChild(div);
+    });
+
+    setTimeout(drawLines, 100);
+    if(window.MathJax) MathJax.typeset();
+}
+
+function handleFlip(inner, key, event) {
+    inner.parentElement.classList.toggle('flipped');
+    if(!seenDefinitions.has(key)) {
+        seenDefinitions.add(key);
+        xpCount += 15; 
+        updateHUD(event);
+    }
+}
+
+function updateHUD(e) {
+    document.getElementById('xp-display').innerText = xpCount;
+    const bulb = document.getElementById('bulb-box');
+    const scale = Math.min(1 + (xpCount / 1200), 2.5); 
+    bulb.style.transform = `scale(${scale})`;
+    spawnKnowledgeParticle(e.clientX, e.clientY);
+    const rankIdx = Math.min(Math.floor(xpCount / 250), ranksList.length - 1);
+    document.getElementById('rank-display').innerText = ranksList[rankIdx];
+}
+
+function spawnKnowledgeParticle(x, y) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = x + 'px'; p.style.top = y + 'px';
+    document.body.appendChild(p);
+    const target = document.getElementById('bulb-box').getBoundingClientRect();
+    const targetX = target.left + target.width / 2;
+    const targetY = target.top + target.height / 2;
+    p.animate([
+        { transform: 'scale(1)', opacity: 1 },
+        { transform: `translate(${targetX - x}px, ${targetY - y}px) scale(0)`, opacity: 0 }
+    ], { duration: 900, easing: 'ease-in' }).onfinish = () => p.remove();
+}
+
+function drawLines() {
+    const svg = document.getElementById('svg-layer');
+    svg.innerHTML = '';
+    const main = document.getElementById('main-node').getBoundingClientRect();
+    const subs = document.querySelectorAll('.sub-node');
+    const canvas = document.querySelector('.canvas');
+
+    subs.forEach(sub => {
+        const subRect = sub.getBoundingClientRect();
+        const startX = main.left + main.width / 2 + canvas.scrollLeft - 400; 
+        const startY = main.bottom + canvas.scrollTop - 140;
+        const endX = subRect.left + subRect.width / 2 + canvas.scrollLeft - 400;
+        const endY = subRect.top + canvas.scrollTop - 140;
+
+        const midY = startY + (endY - startY) / 2;
+        const pathData = `M ${startX} ${startY} L ${startX} ${midY} L ${endX} ${midY} L ${endX} ${endY}`;
+        
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        line.setAttribute("d", pathData);
+        line.setAttribute("class", "technical-line");
+        svg.appendChild(line);
+
+        const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        arrow.setAttribute("d", `M ${endX-6} ${endY-10} L ${endX} ${endY} L ${endX+6} ${endY-10}`);
+        arrow.setAttribute("fill", "none"); arrow.setAttribute("stroke", "#94a3b8"); arrow.setAttribute("stroke-width", "2.5");
+        svg.appendChild(arrow);
+        
+        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("r", "5"); dot.setAttribute("class", "flow-blob");
+        const anim = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+        anim.setAttribute("path", pathData); anim.setAttribute("dur", (Math.random() * 2 + 2) + "s"); anim.setAttribute("repeatCount", "indefinite");
+        dot.appendChild(anim);
+        svg.appendChild(dot);
+    });
+}
+
+window.onresize = drawLines;
+init();
+</script>
+
+</body>
+</html>
